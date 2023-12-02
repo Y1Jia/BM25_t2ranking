@@ -13,14 +13,14 @@ Here we implement all the BM25 variations mentioned.
 
 
 class BM25:
-    def __init__(self, corpus, tokenizer=None):
+    def __init__(self, corpus, tokenizer=None, docid_list=None):
         self.corpus_size = 0
         self.avgdl = 0  # average document length
         self.doc_freqs = [] # list of dict {word -> frequency of word (in that doc)}
         self.idf = {}
         self.doc_len = []
         self.tokenizer = tokenizer
-        # TODO: add docid list 
+        self.docid_list = docid_list
         # TODO: add code to save and load of index
         if tokenizer:
             corpus = self._tokenize_corpus(corpus)
@@ -68,7 +68,7 @@ class BM25:
     def get_batch_scores(self, query, doc_ids):
         raise NotImplementedError()
 
-    def get_top_n(self, query, documents, n=5): # TODO: add docid list, remove documents input
+    def get_top_n(self, query, documents, n=5):
 
         assert self.corpus_size == len(documents), "The documents given don't match the index corpus!"
 
@@ -76,13 +76,19 @@ class BM25:
         top_n = np.argsort(scores)[::-1][:n]
         return [documents[i] for i in top_n]
 
+    def get_top_n_docid(self, query, n=100):
+        assert self.corpus_size == len(self.docid_list), "The documents given don't match the index corpus!"
+        scores = self.get_scores(query)
+        top_n = np.argsort(scores)[::-1][:n]
+        return [self.docid_list[i] for i in top_n]
+
 
 class BM25Okapi(BM25):
-    def __init__(self, corpus, tokenizer=None, k1=1.5, b=0.75, epsilon=0.25):
+    def __init__(self, corpus, tokenizer=None, k1=1.5, b=0.75, epsilon=0.25, docid_list=None):
         self.k1 = k1
         self.b = b
         self.epsilon = epsilon
-        super().__init__(corpus, tokenizer)
+        super().__init__(corpus, tokenizer, docid_list)
 
     def _calc_idf(self, nd):
         """

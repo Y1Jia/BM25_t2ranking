@@ -1,7 +1,8 @@
 import argparse
 import logging
-from rank_bm25 import BM25Okapi
+from tqdm import tqdm
 from transformers import AutoTokenizer
+from rank_bm25 import BM25Okapi
 from read_data import read_collection, read_query
 
 logger = logging.getLogger()
@@ -31,17 +32,18 @@ def main():
     # load collection
     collection = read_collection(args.collection_file)
     corpus = collection['para'].tolist()
-    pid_list = collection.index.tolist()    # pid list for further use
+    docid_list = collection.index.tolist()
     logger.info("collection loaded.")
 
     # test code 
-    print(f"len(corpus) = {len(corpus)}")
     corpus = corpus[:5]
-    logger.debug(corpus)
-    tokenized_corpus = list(map(toknizer.tokenize, corpus))
+    docid_list = docid_list[:5]
+    logger.debug(f"corpus:\n{corpus}")
+    logger.debug(f"docid_list:\n{docid_list}")
+    tokenized_corpus = list(tqdm(map(toknizer.tokenize, corpus), total=len(corpus)))
     logger.info("corpus tokenized.")
     
-    bm25 = BM25Okapi(tokenized_corpus)
+    bm25 = BM25Okapi(tokenized_corpus, docid_list = docid_list)
 
     query = "新妈妈们产后如何快速恢复肚子"
     tokenized_query = toknizer.tokenize(query)
@@ -49,6 +51,8 @@ def main():
     logger.debug(doc_scores)
     top_n = bm25.get_top_n(query, corpus, 5)
     logger.debug(top_n)
+    top_n_docid = bm25.get_top_n_docid(query, 100)
+    logger.debug(top_n_docid)
 
 
 
