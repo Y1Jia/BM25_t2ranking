@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-
+import os
 import math
+import json
 import numpy as np
 from multiprocessing import Pool, cpu_count
 
@@ -13,7 +14,7 @@ Here we implement all the BM25 variations mentioned.
 
 
 class BM25:
-    def __init__(self, corpus, tokenizer=None, docid_list=None):
+    def __init__(self, corpus=None, tokenizer=None, docid_list=None, logger=None, index_file=None):
         self.corpus_size = 0
         self.avgdl = 0  # average document length
         self.doc_freqs = [] # list of dict {word -> frequency of word (in that doc)}
@@ -21,12 +22,18 @@ class BM25:
         self.doc_len = []
         self.tokenizer = tokenizer
         self.docid_list = docid_list
-        # TODO: add code to save and load of index
-        if tokenizer:
-            corpus = self._tokenize_corpus(corpus)
+        self.logger = logger
 
-        nd = self._initialize(corpus)
-        self._calc_idf(nd)
+        if index_file is not None:
+            assert os.path.exists(index_file)==True, "index_file not exists!"
+            self.load_index(index_file)
+        else: 
+            assert corpus is not None, "corpus is None!"
+            if tokenizer:
+                corpus = self._tokenize_corpus(corpus)
+
+            nd = self._initialize(corpus)
+            self._calc_idf(nd)
 
     def _initialize(self, corpus):
         ''' get self.doc_freqs, self.doc_len, nd '''
@@ -81,14 +88,44 @@ class BM25:
         scores = self.get_scores(query)
         top_n = np.argsort(scores)[::-1][:n]
         return [self.docid_list[i] for i in top_n]
+    
+    def save_index(self, index_file):
+        index = {"corpus_size": self.corpus_size,
+                 "avgdl": self.avgdl,
+                 "doc_freqs": self.doc_freqs,
+                 "idf": self.idf,
+                 "doc_len": self.doc_len,
+                 "docid_list": self.docid_list}
+        
+        with open(index_file, "w", encoding="utf-8") as f:
+            json.dump(index, f, ensure_ascii=False)
+        
+        self.logger.info(f"save index to file {index_file}")
 
+    def load_index(self, index_file):
+        with open(index_file, "r", encoding="utf-8") as f:
+            index = json.load(f)
+        
+        try:
+            self.corpus_size = index["corpus_size"]
+            self.avgdl = index["avgdl"]
+            self.doc_freqs = index["doc_freqs"]
+            self.idf = index["idf"]
+            self.doc_len = index["doc_len"]
+            self.docid_list = index["docid_list"]
+        except KeyError as e:
+            self.logger.error("index doesn't contain key:", e)
+        except Exception as e:
+            self.logger.error("an error occour:", e)
+
+        self.logger.info(f"load index from {index_file}")
 
 class BM25Okapi(BM25):
-    def __init__(self, corpus, tokenizer=None, k1=1.5, b=0.75, epsilon=0.25, docid_list=None):
+    def __init__(self, corpus=None, tokenizer=None, k1=1.5, b=0.75, epsilon=0.25, docid_list=None, logger=None, index_file=None):
         self.k1 = k1
         self.b = b
         self.epsilon = epsilon
-        super().__init__(corpus, tokenizer, docid_list)
+        super().__init__(corpus, tokenizer, docid_list, logger, index_file)
 
     def _calc_idf(self, nd):
         """

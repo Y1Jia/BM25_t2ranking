@@ -2,3 +2,4 @@
 *.pyc
 test_code.py
 *.log
+index.json
